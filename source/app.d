@@ -1,7 +1,5 @@
 import arsd.simpledisplay;
-import arsd.minigui;
 import std.conv;
-
 uint b4toi(ubyte[4] b4)
 {
     uint result;
@@ -27,6 +25,20 @@ struct DebuggerClientState
     ushort* NumberVariable;
     uint Number;
     bool numberInput;
+
+    bool commandInput;
+    char[256] commandBuffer;
+    int commandLength;
+
+    string commandString()
+    {
+        return commandLength ? cast(string)(commandBuffer[0 .. commandLength]) : null;
+    }
+
+    string command()
+    {
+        return commandInput ? null : commandString;
+    }
 
     void delegate(string) StatusLine = null;
 
@@ -61,6 +73,8 @@ void main()
     immutable textStart = window.height / 2;
 
     int y = textStart;
+    import std.stdio;
+    writeln(XOpenDisplay(null));
 
     void StatusLine(string text)
     {
@@ -112,9 +126,9 @@ void main()
     window.eventLoop(4000, delegate() {
         with (state)
         {
-            if (!dmdPort && !numberInput)
+            if (!dmdPort && !numberInput && !commandInput)
             {
-                ushort portList[] = [0xc7fe];
+                ushort[] portList = [0xc7fe];
                 dmdPort = findDmd(portList);
                 if (dmdPort)
                 {
@@ -130,6 +144,7 @@ void main()
             return;
         }
     }, (KeyEvent event) {
+        immutable key = event.key;
         with (state)
         {
             import std.datetime : Clock, msecs;
@@ -144,15 +159,15 @@ void main()
             }
 
             lastTime = now;
-            oldKey = event.key;
+            oldKey = key;
 
-            if (event.key >= Key.N0 && event.key <= Key.N9)
+            if (key >= Key.N0 && key <= Key.N9)
             {
                 import std.math;
 
                 if (numberInput)
                 {
-                    uint n = (event.key - Key.N0);
+                    uint n = (key - Key.N0);
 
                     Number *= 10;
                     Number += n;
@@ -163,7 +178,7 @@ void main()
             {
                 if (numberInput)
                 {
-                    if (event.key == Key.Backspace)
+                    if (key == Key.Backspace)
                     {
                         Number /= 10;
                         UpdateStatusLine();
@@ -175,14 +190,46 @@ void main()
                     Number = 0;
                     StatusLine(null);
                 }
-                else
-                    addLine(to!string(event));
-
-                if (event.key == Key.F4 || event.key == Key.Escape || event.key == Key.Q)
-                    window.close();
-                if (event.key == Key.P)
+                else if (commandInput)
                 {
-                    NumberInput(&dmdPort, "dmdPort");
+                    if (key >= Key.A && key <= Key.Z)
+                    {
+                        commandBuffer[commandLength++] = cast(char)((event.modifierState & ModifierState.shift ? 'A' : 'a') + (key - Key.A));
+                    }
+                    else if (key == Key.Space)
+                    {
+                        commandBuffer[commandLength++] = ' ';
+                    }
+                    else if (key == Key.Backspace)
+                    {
+                        if (commandLength) 
+                            commandLength--;
+                    }
+                    else if (key == Key.Enter)
+                    {
+                        commandInput = false;
+                        if (commandLength)
+                            addLine(": " ~ command);
+                    }
+                    
+                    StatusLine(": " ~ cast(string) commandBuffer[0 .. commandLength]);
+                }
+                else if (key == Key.Shift) 
+                {}
+                else
+                {
+                    addLine(to!string(event));
+                }
+
+                if (key == Key.F4 || key == Key.Escape || command == "q")
+                    window.close();
+
+
+                if (key == Key.Semicolon && event.modifierState & ModifierState.shift)
+                {
+                    StatusLine(": ");
+                    commandLength = 0;
+                    commandInput = true;
                 }
 
             }
