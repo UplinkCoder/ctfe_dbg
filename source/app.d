@@ -12,6 +12,11 @@ uint b4toi(ubyte[4] b4)
     return result;
 }
 
+struct v2
+{
+    float x, y;
+}
+
 struct DebuggerClientState
 {
     ubyte[8192] recvBuffer;
@@ -40,11 +45,12 @@ struct DebuggerClientState
         return commandInput ? null : commandString;
     }
 
-    void delegate(string) StatusLine = null;
+    void delegate(string) BottomLine = null;
+	void delegate(string) TopLine = null;
 
-    void UpdateStatusLine()
+    void UpdateBottomLine()
     {
-        StatusLine(VarName ? VarName ~ to!string(Number) : to!string(Number));
+        BottomLine(VarName ? VarName ~ to!string(Number) : to!string(Number));
     }
 
     void NumberInput(ushort* varP, string varName = null)
@@ -52,7 +58,7 @@ struct DebuggerClientState
         if (varName)
         {
             VarName = varName ~ ": "; 
-            StatusLine(VarName);
+            BottomLine(VarName);
         }
         numberInput = true;
         NumberVariable = varP;
@@ -68,35 +74,82 @@ void main()
 {
 
     DebuggerClientState state;
+    auto disp = XOpenDisplay(null);
+    auto screenDim = v2(DisplayWidth(disp, 0), DisplayHeight(disp, 0));
 
     auto window = new SimpleWindow(Size(1024, 786), "ctfe_dbg");
     immutable textStart = window.height / 2;
 
     int y = textStart;
     import std.stdio;
-    writeln(XOpenDisplay(null));
 
-    void StatusLine(string text)
+    void BottomLine(string text)
     {
         auto painter = window.draw();
-        int y = window.height - painter.fontHeight - 2;
+        int y = window.height - painter.fontHeight;
 
         if (text is null)
         {
             painter.outlineColor = Color.white;
             painter.fillColor = Color.white;
-            painter.drawRectangle(Point(0, y), window.width, painter.fontHeight + 2);
+            painter.drawRectangle(Point(0, y), window.width, painter.fontHeight);
+			return ;
         }
 
         painter.outlineColor = Color.red;
         painter.fillColor = Color.gray;
-        painter.drawRectangle(Point(0, y), window.width, painter.fontHeight + 2);
+        painter.drawRectangle(Point(0, y), window.width, painter.fontHeight);
 
         painter.outlineColor = Color.green;
         painter.drawText(Point(10, y), text);
     }
 
-    state.StatusLine = &StatusLine;
+	void TopLine(string text)
+	{
+		auto painter = window.draw();
+		int y = 0;
+		
+		if (text is null)
+		{
+			painter.outlineColor = Color.white;
+			painter.fillColor = Color.white;
+			painter.drawRectangle(Point(0, y), window.width, painter.fontHeight);
+			return ;
+		}
+		
+		painter.outlineColor = Color.red;
+		painter.fillColor = Color.gray;
+		painter.drawRectangle(Point(0, y), window.width, painter.fontHeight);
+		
+		painter.outlineColor = Color.green;
+		painter.drawText(Point(10, y), text);
+	}
+
+
+    state.BottomLine = &BottomLine;
+	state.TopLine = &TopLine;
+
+	void handleCommand(string command)
+	{
+		switch(command)
+		{
+			case "quit" :
+				window.close();
+				break;
+			case "help" :
+				TopLine("I'd show help here ... but there is nothing to show");
+				break;
+			case "clear" :
+			{
+				TopLine(null);
+				BottomLine(null);
+			}
+				break;
+			default :
+				TopLine("No such command: " ~ command);
+				break;
+		}
+	}
 
     void addLine(string text)
     {
@@ -106,7 +159,7 @@ void main()
         if (y + painter.fontHeight * 3 >= window.height)
         {
             painter.scrollArea(Point(0, textStart), window.width,
-                    window.height - painter.fontHeight*4, 0, painter.fontHeight);
+                    window.height - (window.height / 2) - painter.fontHeight*3, 0, painter.fontHeight);
             y -= painter.fontHeight + 2;
         }
 
@@ -136,7 +189,7 @@ void main()
                 }
                 else
                 {
-                    StatusLine("Did not find no dmd on ports: " ~ to!string(portList));
+                    BottomLine("Did not find no dmd on ports: " ~ to!string(portList));
                 }
             }
 
@@ -171,7 +224,7 @@ void main()
 
                     Number *= 10;
                     Number += n;
-                    UpdateStatusLine();
+                    UpdateBottomLine();
                 }
             }
             else
@@ -181,14 +234,14 @@ void main()
                     if (key == Key.Backspace)
                     {
                         Number /= 10;
-                        UpdateStatusLine();
+                        UpdateBottomLine();
                         return;
                     }
                     numberInput = false;
                     *NumberVariable = cast(ushort) Number;
                     addLine("Number: " ~ to!string(Number));
                     Number = 0;
-                    StatusLine(null);
+                    BottomLine(null);
                 }
                 else if (commandInput)
                 {
@@ -209,10 +262,10 @@ void main()
                     {
                         commandInput = false;
                         if (commandLength)
-                            addLine(": " ~ command);
+    						handleCommand(command);
                     }
                     
-                    StatusLine(": " ~ cast(string) commandBuffer[0 .. commandLength]);
+                    BottomLine(": " ~ cast(string) commandBuffer[0 .. commandLength]);
                 }
                 else if (key == Key.Shift) 
                 {}
@@ -221,13 +274,13 @@ void main()
                     addLine(to!string(event));
                 }
 
-                if (key == Key.F4 || key == Key.Escape || command == "q")
+                if (key == Key.F4 || key == Key.Escape || (!commandInput && key == Key.Q))
                     window.close();
 
 
                 if (key == Key.Semicolon && event.modifierState & ModifierState.shift)
                 {
-                    StatusLine(": ");
+                    BottomLine(": ");
                     commandLength = 0;
                     commandInput = true;
                 }
