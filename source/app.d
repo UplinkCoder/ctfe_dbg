@@ -83,7 +83,7 @@ void main()
     int y = textStart;
     import std.stdio;
 
-    void BottomLine(string text)
+    void BottomLine(string text, Color textColor = Color.green)
     {
         auto painter = window.draw();
         int y = window.height - painter.fontHeight;
@@ -100,11 +100,11 @@ void main()
         painter.fillColor = Color.gray;
         painter.drawRectangle(Point(0, y), window.width, painter.fontHeight);
 
-        painter.outlineColor = Color.green;
+        painter.outlineColor = textColor;
         painter.drawText(Point(10, y), text);
     }
 
-	void TopLine(string text)
+	void TopLine(string text, Color textColor = Color.green)
 	{
 		auto painter = window.draw();
 		int y = 0;
@@ -121,7 +121,7 @@ void main()
 		painter.fillColor = Color.gray;
 		painter.drawRectangle(Point(0, y), window.width, painter.fontHeight);
 		
-		painter.outlineColor = Color.green;
+		painter.outlineColor = textColor;
 		painter.drawText(Point(10, y), text);
 	}
 
