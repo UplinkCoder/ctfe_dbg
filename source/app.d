@@ -17,6 +17,24 @@ struct v2
     float x, y;
 }
 
+enum PacketType : uint
+{
+	Invalid,
+
+	Request,
+	Response
+}
+
+alias Response = PacketType.Response;
+alias Request = PacketType.Request;
+
+align(1) struct DebugPacket
+{
+align(4):
+	PacketType type;
+	int[7] content;
+}
+
 struct DebuggerClientState
 {
     ubyte[8192] recvBuffer;
@@ -45,12 +63,15 @@ struct DebuggerClientState
         return commandInput ? null : commandString;
     }
 
-    void delegate(string) BottomLine = null;
-	void delegate(string) TopLine = null;
+    void delegate(string, Color = Color.green) BottomLine = null;
+	void delegate(string, Color = Color.green) TopLine = null;
 
     void UpdateBottomLine()
     {
-        BottomLine(VarName ? VarName ~ to!string(Number) : to!string(Number));
+        if (numberInput)
+            BottomLine(VarName ? VarName ~ to!string(Number) : to!string(Number));
+        else
+            BottomLine(null);
     }
 
     void NumberInput(ushort* varP, string varName = null)
@@ -72,20 +93,21 @@ ushort findDmd(ushort[] portList)
 
 void main()
 {
+	auto font = new OperatingSystemFont("Arial", 24);
 
     DebuggerClientState state;
     auto disp = XOpenDisplay(null);
     auto screenDim = v2(DisplayWidth(disp, 0), DisplayHeight(disp, 0));
 
     auto window = new SimpleWindow(Size(1024, 786), "ctfe_dbg");
-    immutable textStart = window.height / 2;
+    const textStart = window.height / 2;
 
-    int y = textStart;
     import std.stdio;
 
     void BottomLine(string text, Color textColor = Color.green)
     {
         auto painter = window.draw();
+		painter.setFont(font);
         int y = window.height - painter.fontHeight;
 
         if (text is null)
@@ -143,6 +165,13 @@ void main()
 			{
 				TopLine(null);
 				BottomLine(null);
+                return ;
+			}
+				break;
+			case "b" :
+			{
+				ushort breakPoint;
+				state.NumberInput(&breakPoint, "breakPoint ");
 			}
 				break;
 			default :
@@ -153,14 +182,17 @@ void main()
 
     void addLine(string text)
     {
+        static int y;
+        if (!y)
+            y = textStart;
+
         auto painter = window.draw();
+		painter.setFont(font);
         //painter.fontHeight = window.height / 80;
 
         if (y + painter.fontHeight * 3 >= window.height)
         {
-            painter.scrollArea(Point(0, textStart), window.width,
-                    window.height - (window.height / 2) - painter.fontHeight*3, 0, painter.fontHeight);
-            y -= painter.fontHeight + 2;
+            y = textStart;
         }
 
         painter.outlineColor = Color.red;
@@ -263,6 +295,11 @@ void main()
                         commandInput = false;
                         if (commandLength)
     						handleCommand(command);
+						return;
+                    }
+                    else if (key == Key.Up)
+                    {
+                        TopLine("We should show history now", Color.yellow);
                     }
                     
                     BottomLine(": " ~ cast(string) commandBuffer[0 .. commandLength]);
