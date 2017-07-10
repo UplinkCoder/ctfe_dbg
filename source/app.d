@@ -1,5 +1,6 @@
 import arsd.simpledisplay;
 import std.conv;
+
 uint b4toi(ubyte[4] b4)
 {
     uint result;
@@ -19,10 +20,10 @@ struct v2
 
 enum PacketType : uint
 {
-	Invalid,
+    Invalid,
 
-	Request,
-	Response
+    Request,
+    Response
 }
 
 alias Response = PacketType.Response;
@@ -31,8 +32,8 @@ alias Request = PacketType.Request;
 align(1) struct DebugPacket
 {
 align(4):
-	PacketType type;
-	int[7] content;
+    PacketType type;
+    int[7] content;
 }
 
 struct DebuggerClientState
@@ -48,10 +49,16 @@ struct DebuggerClientState
     ushort* NumberVariable;
     uint Number;
     bool numberInput;
+    void delegate(int) numberInputCallBack = null;
 
     bool commandInput;
     char[256] commandBuffer;
     int commandLength;
+
+    void setBreakPoint(int n)
+    {
+        TopLine("set breakpoint " ~ to!string(n));
+    }
 
     string commandString()
     {
@@ -64,26 +71,15 @@ struct DebuggerClientState
     }
 
     void delegate(string, Color = Color.green) BottomLine = null;
-	void delegate(string, Color = Color.green) TopLine = null;
+    void delegate(string, Color = Color.green) TopLine = null;
 
-    void UpdateBottomLine()
+    void NumberInput(void delegate(int n) cb)
     {
-        if (numberInput)
-            BottomLine(VarName ? VarName ~ to!string(Number) : to!string(Number));
-        else
-            BottomLine(null);
-    }
-
-    void NumberInput(ushort* varP, string varName = null)
-    {
-        if (varName)
-        {
-            VarName = varName ~ ": "; 
-            BottomLine(VarName);
-        }
+        assert(!numberInputCallBack);
+        numberInputCallBack = cb;
         numberInput = true;
-        NumberVariable = varP;
     }
+
 }
 
 ushort findDmd(ushort[] portList)
@@ -93,7 +89,7 @@ ushort findDmd(ushort[] portList)
 
 void main()
 {
-	auto font = new OperatingSystemFont("Arial", 24);
+    auto font = new OperatingSystemFont("Arial.ttf", 24);
 
     DebuggerClientState state;
     auto disp = XOpenDisplay(null);
@@ -107,7 +103,7 @@ void main()
     void BottomLine(string text, Color textColor = Color.green)
     {
         auto painter = window.draw();
-		painter.setFont(font);
+        painter.setFont(font);
         int y = window.height - painter.fontHeight;
 
         if (text is null)
@@ -115,7 +111,7 @@ void main()
             painter.outlineColor = Color.white;
             painter.fillColor = Color.white;
             painter.drawRectangle(Point(0, y), window.width, painter.fontHeight);
-			return ;
+            return;
         }
 
         painter.outlineColor = Color.red;
@@ -126,59 +122,62 @@ void main()
         painter.drawText(Point(10, y), text);
     }
 
-	void TopLine(string text, Color textColor = Color.green)
-	{
-		auto painter = window.draw();
-		int y = 0;
-		
-		if (text is null)
-		{
-			painter.outlineColor = Color.white;
-			painter.fillColor = Color.white;
-			painter.drawRectangle(Point(0, y), window.width, painter.fontHeight);
-			return ;
-		}
-		
-		painter.outlineColor = Color.red;
-		painter.fillColor = Color.gray;
-		painter.drawRectangle(Point(0, y), window.width, painter.fontHeight);
-		
-		painter.outlineColor = textColor;
-		painter.drawText(Point(10, y), text);
-	}
+    void TopLine(string text, Color textColor = Color.green)
+    {
+        auto painter = window.draw();
+        int y = 0;
 
+        if (text is null)
+        {
+            painter.outlineColor = Color.white;
+            painter.fillColor = Color.white;
+            painter.drawRectangle(Point(0, y), window.width, painter.fontHeight);
+            return;
+        }
+
+        painter.outlineColor = Color.red;
+        painter.fillColor = Color.gray;
+        painter.drawRectangle(Point(0, y), window.width, painter.fontHeight);
+
+        painter.outlineColor = textColor;
+        painter.drawText(Point(10, y), text);
+    }
 
     state.BottomLine = &BottomLine;
-	state.TopLine = &TopLine;
+    state.TopLine = &TopLine;
 
-	void handleCommand(string command)
-	{
-		switch(command)
-		{
-			case "quit" :
-				window.close();
-				break;
-			case "help" :
-				TopLine("I'd show help here ... but there is nothing to show");
-				break;
-			case "clear" :
-			{
-				TopLine(null);
-				BottomLine(null);
-                return ;
-			}
-				break;
-			case "b" :
-			{
-				ushort breakPoint;
-				state.NumberInput(&breakPoint, "breakPoint ");
-			}
-				break;
-			default :
-				TopLine("No such command: " ~ command);
-				break;
-		}
-	}
+    if (font.isNull)
+    {
+        TopLine("failed to load font");
+    }
+
+    void handleCommand(string command)
+    {
+        switch (command) with (state)
+        {
+        case "quit":
+            window.close();
+            break;
+        case "help":
+            TopLine("I'd show help here ... but there is nothing to show");
+            break;
+        case "clear":
+            {
+                TopLine(null);
+                BottomLine(null);
+                return;
+            }
+            break;
+        case "b":
+            {
+                NumberInput(&setBreakPoint);
+            }
+            break;
+        default:
+            TopLine("No such command: " ~ command);
+            break;
+        }
+    }
 
     void addLine(string text)
     {
@@ -187,7 +186,7 @@ void main()
             y = textStart;
 
         auto painter = window.draw();
-		painter.setFont(font);
+        painter.setFont(font);
         //painter.fontHeight = window.height / 80;
 
         if (y + painter.fontHeight * 3 >= window.height)
@@ -246,31 +245,40 @@ void main()
             lastTime = now;
             oldKey = key;
 
-            if (key >= Key.N0 && key <= Key.N9)
-            {
-                import std.math;
-
-                if (numberInput)
-                {
-                    uint n = (key - Key.N0);
-
-                    Number *= 10;
-                    Number += n;
-                    UpdateBottomLine();
-                }
-            }
-            else
             {
                 if (numberInput)
                 {
+                    if (key >= Key.N0 && key <= Key.N9)
+                    {
+                        import std.math;
+
+                        uint n = (key - Key.N0);
+
+                        Number *= 10;
+                        Number += n;
+                        return;
+                    }
                     if (key == Key.Backspace)
                     {
                         Number /= 10;
-                        UpdateBottomLine();
+
                         return;
                     }
                     numberInput = false;
-                    *NumberVariable = cast(ushort) Number;
+                    if (numberInputCallBack !is null)
+                    {
+                        numberInputCallBack(Number);
+                        numberInputCallBack = null;
+                    }
+                    else if (NumberVariable)
+                    {
+                        *NumberVariable = cast(ushort) Number;
+                        NumberVariable = null;
+                    }
+                    else
+                        assert(0,
+                            "Either Numbervariable or numbercallBack have to be set before we can enter number input");
+
                     addLine("Number: " ~ to!string(Number));
                     Number = 0;
                     BottomLine(null);
@@ -279,7 +287,8 @@ void main()
                 {
                     if (key >= Key.A && key <= Key.Z)
                     {
-                        commandBuffer[commandLength++] = cast(char)((event.modifierState & ModifierState.shift ? 'A' : 'a') + (key - Key.A));
+                        commandBuffer[commandLength++] = cast(char)((event.modifierState & ModifierState.shift
+                            ? 'A' : 'a') + (key - Key.A));
                     }
                     else if (key == Key.Space)
                     {
@@ -287,25 +296,26 @@ void main()
                     }
                     else if (key == Key.Backspace)
                     {
-                        if (commandLength) 
+                        if (commandLength)
                             commandLength--;
                     }
                     else if (key == Key.Enter)
                     {
                         commandInput = false;
                         if (commandLength)
-    						handleCommand(command);
-						return;
+                            handleCommand(command);
+                        return;
                     }
                     else if (key == Key.Up)
                     {
                         TopLine("We should show history now", Color.yellow);
                     }
-                    
+
                     BottomLine(": " ~ cast(string) commandBuffer[0 .. commandLength]);
                 }
-                else if (key == Key.Shift) 
-                {}
+                else if (key == Key.Shift)
+                {
+                }
                 else
                 {
                     addLine(to!string(event));
@@ -313,7 +323,6 @@ void main()
 
                 if (key == Key.F4 || key == Key.Escape || (!commandInput && key == Key.Q))
                     window.close();
-
 
                 if (key == Key.Semicolon && event.modifierState & ModifierState.shift)
                 {
