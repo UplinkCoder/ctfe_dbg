@@ -151,11 +151,11 @@ void main()
         TopLine("failed to load font");
     }
 
-    void handleCommand(string command)
+    void handleCommand(string _command)
     {
-        switch (command) with (state)
+        switch (_command) with (state)
         {
-        case "quit":
+        case "quit", "q":
             window.close();
             break;
         case "help":
@@ -174,7 +174,7 @@ void main()
             }
             break;
         default:
-            TopLine("No such command: " ~ command);
+            TopLine("No such command: " ~ _command);
             break;
         }
     }
@@ -260,26 +260,21 @@ void main()
                     }
                     if (key == Key.Backspace)
                     {
-                        Number /= 10;
-
+						Number /= 10;
                         return;
                     }
+
                     numberInput = false;
                     if (numberInputCallBack !is null)
                     {
                         numberInputCallBack(Number);
                         numberInputCallBack = null;
                     }
-                    else if (NumberVariable)
-                    {
-                        *NumberVariable = cast(ushort) Number;
-                        NumberVariable = null;
-                    }
                     else
                         assert(0,
-                            "Either Numbervariable or numbercallBack have to be set before we can enter number input");
+                            "a numbercallBack has to be set before we can enter number input");
 
-                    addLine("Number: " ~ to!string(Number));
+                    BottomLine("Number: " ~ to!string(Number));
                     Number = 0;
                     BottomLine(null);
                 }
@@ -289,6 +284,10 @@ void main()
                     {
                         commandBuffer[commandLength++] = cast(char)((event.modifierState & ModifierState.shift
                             ? 'A' : 'a') + (key - Key.A));
+                    }
+                    else if (key >= Key.N0 && key <= Key.N9)
+                    {
+                        commandBuffer[commandLength++] = cast(char)('0' + key - Key.N0);
                     }
                     else if (key == Key.Space)
                     {
