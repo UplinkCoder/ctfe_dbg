@@ -55,6 +55,9 @@ struct DebuggerClientState
     char[256] commandBuffer;
     int commandLength;
 
+    char[265][32] commandHistoryBuffer;
+    int commandHistoryLength;
+
     void setBreakPoint(int n)
     {
         TopLine("set breakpoint " ~ to!string(n));
@@ -82,9 +85,28 @@ struct DebuggerClientState
 
 }
 
-ushort findDmd(ushort[] portList)
+struct Conn
 {
-    return 0;
+    enum ConnType
+    {
+        invalid,
+
+        udp,
+        tcp
+    }
+
+    ushort srcPort;
+    ushort dstPort;
+    uint srcIp;
+    uint dstIp;
+    void[] sendBuffer;
+    void[] recvBuffer;
+
+}
+
+bool discoverDmd()
+{
+
 }
 
 void main()
@@ -161,11 +183,10 @@ void main()
         case "help":
             TopLine("I'd show help here ... but there is nothing to show");
             break;
-        case "clear":
+        case "clear", "c":
             {
                 TopLine(null);
                 BottomLine(null);
-                return;
             }
             break;
         case "b":
@@ -220,7 +241,7 @@ void main()
                 }
                 else
                 {
-                    BottomLine("Did not find no dmd on ports: " ~ to!string(portList));
+                    TopLine("Did not find no dmd on ports: " ~ to!string(portList), Color.yellow);
                 }
             }
 
@@ -260,7 +281,7 @@ void main()
                     }
                     if (key == Key.Backspace)
                     {
-						Number /= 10;
+                        Number /= 10;
                         return;
                     }
 
@@ -271,8 +292,7 @@ void main()
                         numberInputCallBack = null;
                     }
                     else
-                        assert(0,
-                            "a numbercallBack has to be set before we can enter number input");
+                        assert(0, "a numbercallBack has to be set before we can enter number input");
 
                     BottomLine("Number: " ~ to!string(Number));
                     Number = 0;
