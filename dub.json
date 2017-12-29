@@ -1,9 +1,10 @@
 {
-	"name": "dbg_ui",
-	"authors": [
-		"uplink"
-	],
-	"description": "A minimal D application.",
-	"copyright": "Copyright © 2017, uplink",
-	"license": "proprietary"
+    "name": "dbg_ui",
+    "authors": [
+        "uplink"
+    ],
+    "libs" : ["X11", "GL", "GLU", "Xext"],
+    "description": "A minimal D application.",
+    "copyright": "Copyright © 2017, uplink",
+    "license": "proprietary"
 }
