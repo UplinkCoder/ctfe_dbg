@@ -1,6 +1,11 @@
 import arsd.simpledisplay;
 import std.conv;
 
+ushort findDmd(ushort[] portList)
+{
+    return 0;
+}
+
 uint b4toi(ubyte[4] b4)
 {
     uint result;
@@ -106,7 +111,7 @@ struct Conn
 
 bool discoverDmd()
 {
-
+  return false;
 }
 
 void main()
@@ -180,7 +185,7 @@ void main()
         case "quit", "q":
             window.close();
             break;
-        case "help":
+        case "help", "h":
             TopLine("I'd show help here ... but there is nothing to show");
             break;
         case "clear", "c":
