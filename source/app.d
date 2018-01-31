@@ -232,6 +232,14 @@ void main()
     }
 
     window.setResizeGranularity(2, 2);
+    with(state)
+    {
+            commandBuffer[0 .. 4] = "help";
+            commandLength = 4;
+            handleCommand(cast(string)commandBuffer[0 .. 4]);
+
+    }
+
     //window2.eventLoop(1000, delegate () {return ;});
     window.eventLoop(4000, delegate() {
         with (state)
