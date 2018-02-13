@@ -43,6 +43,9 @@ align(4):
 
 struct DebuggerClientState
 {
+    OperatingSystemFont font;
+    SimpleWindow window;
+
     ubyte[8192] recvBuffer;
 
     uint dmdIp = b4toi([127, 0, 0, 1]); /// not use for now
@@ -77,55 +80,6 @@ struct DebuggerClientState
     {
         return commandInput ? null : commandString;
     }
-
-    void delegate(string, Color = Color.green) BottomLine = null;
-    void delegate(string, Color = Color.green) TopLine = null;
-
-    void NumberInput(void delegate(int n) cb)
-    {
-        assert(!numberInputCallBack);
-        numberInputCallBack = cb;
-        numberInput = true;
-    }
-
-}
-
-struct Conn
-{
-    enum ConnType
-    {
-        invalid,
-
-        udp,
-        tcp
-    }
-
-    ushort srcPort;
-    ushort dstPort;
-    uint srcIp;
-    uint dstIp;
-    void[] sendBuffer;
-    void[] recvBuffer;
-
-}
-
-bool discoverDmd()
-{
-  return false;
-}
-
-void main()
-{
-    auto font = new OperatingSystemFont("Arial.ttf", 24);
-
-    DebuggerClientState state;
-    auto disp = XOpenDisplay(null);
-    auto screenDim = v2(DisplayWidth(disp, 0), DisplayHeight(disp, 0));
-
-    auto window = new SimpleWindow(Size(1024, 786), "ctfe_dbg");
-    const textStart = window.height / 2;
-
-    import std.stdio;
 
     void BottomLine(string text, Color textColor = Color.green)
     {
@@ -170,43 +124,10 @@ void main()
         painter.drawText(Point(10, y), text);
     }
 
-    state.BottomLine = &BottomLine;
-    state.TopLine = &TopLine;
-
-    if (font.isNull)
-    {
-        TopLine("failed to load font");
-    }
-
-    void handleCommand(string _command)
-    {
-        switch (_command) with (state)
-        {
-        case "quit", "q":
-            window.close();
-            break;
-        case "help", "h":
-            TopLine("I'd show help here ... but there is nothing to show");
-            break;
-        case "clear", "c":
-            {
-                TopLine(null);
-                BottomLine(null);
-            }
-            break;
-        case "b":
-            {
-                NumberInput(&setBreakPoint);
-            }
-            break;
-        default:
-            TopLine("No such command: " ~ _command);
-            break;
-        }
-    }
-
     void addLine(string text)
     {
+        const textStart = window.height / 2;
+
         static int y;
         if (!y)
             y = textStart;
@@ -231,15 +152,98 @@ void main()
         y += painter.fontHeight + 2;
     }
 
-    window.setResizeGranularity(2, 2);
+
+    void NumberInput(void delegate(int n) cb)
+    {
+        assert(!numberInputCallBack);
+        numberInputCallBack = cb;
+        numberInput = true;
+    }
+
+}
+
+struct Conn
+{
+    enum ConnType
+    {
+        invalid,
+
+        udp,
+        tcp
+    }
+
+    ushort srcPort;
+    ushort dstPort;
+    uint srcIp;
+    uint dstIp;
+    void[] sendBuffer;
+    void[] recvBuffer;
+
+}
+
+ushort findDmdPort(ushort[] portList = [0xC7F3])
+{
+	return 0;
+}
+
+bool discoverDmd()
+{
+	return true;
+}
+
+void main()
+{
+
+    DebuggerClientState state;
+    auto disp = XOpenDisplay(null);
+    auto screenDim = v2(DisplayWidth(disp, 0), DisplayHeight(disp, 0));
+
+    state.window = new SimpleWindow(Size(1024, 786), "ctfe_dbg");
+    state.font = new OperatingSystemFont("Arial.ttf", 24);
+
+    import std.stdio;
+
+    if (state.font.isNull)
+    {
+        state.TopLine("failed to load font", Color.yellow);
+    }
+
+    void handleCommand(string _command)
+    {
+        with(state) switch (_command)
+        {
+        case "quit", "q":
+            window.close();
+            break;
+        case "help", "h":
+            TopLine("I'd show help here ... but there is nothing to show");
+            break;
+        case "clear", "c":
+            {
+                TopLine(null);
+                BottomLine(null);
+            }
+            break;
+        case "b":
+            {
+                NumberInput(&setBreakPoint);
+            }
+            break;
+        default:
+            TopLine("No such command: " ~ _command);
+            break;
+        }
+    }
+
+    state.window.setResizeGranularity(2, 2);
     //window2.eventLoop(1000, delegate () {return ;});
-    window.eventLoop(4000, delegate() {
+    state.window.eventLoop(4000, delegate() {
         with (state)
         {
             if (!dmdPort && !numberInput && !commandInput)
             {
                 ushort[] portList = [0xc7fe];
-                dmdPort = findDmd(portList);
+                dmdPort = findDmdPort(portList);
                 if (dmdPort)
                 {
                     // TODO on succsessful connection
@@ -297,7 +301,7 @@ void main()
                         numberInputCallBack = null;
                     }
                     else
-                        assert(0, "a numbercallBack has to be set before we can enter number input");
+                        assert(0, "numberInputCallBack has to be set before we can enter number input");
 
                     BottomLine("Number: " ~ to!string(Number));
                     Number = 0;
