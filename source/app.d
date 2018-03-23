@@ -49,11 +49,8 @@ struct DebuggerClientState
     ubyte[8192] recvBuffer;
 
     uint dmdIp = b4toi([127, 0, 0, 1]); /// not use for now
-    ushort dmdPort; /// a non-zero means we are connect on that port;
-    string source;
-    uint currentLine;
+    ushort dmdPort; /// a non-zero means we are connected on that port;
 
-    string VarName;
     ushort* NumberVariable;
     uint Number;
     bool numberInput;
@@ -63,8 +60,11 @@ struct DebuggerClientState
     char[256] commandBuffer;
     int commandLength;
 
-    char[265][32] commandHistoryBuffer;
+    char[265][32] commandHistoryBuffers;
+    int[commandHistoryBuffers.length] commandHistoryBufferLengths;
     int commandHistoryLength;
+
+    int currentHistoryIdx;
 
     string blPrefix;
 
@@ -167,6 +167,16 @@ struct DebuggerClientState
         assert(!numberInputCallBack);
         numberInputCallBack = cb;
         numberInput = true;
+    }
+
+    void addToHistory (string command)
+    {
+        int commandLength = cast(int) command.length;
+        commandHistoryBuffers[commandHistoryLength & commandHistoryBuffers.length]
+            [0 .. commandLength] = command[0 .. commandLength];
+        commandHistoryBufferLengths
+            [commandHistoryLength & commandHistoryBuffers.length] = commandLength;
+        commandHistoryLength++;
     }
 
 }
@@ -348,7 +358,10 @@ void main()
                     {
                         commandInput = false;
                         if (commandLength)
+                        {
                             handleCommand(command);
+                            addToHistory(command);
+                        }
                         return;
                     }
                     else if (key == Key.Up)
