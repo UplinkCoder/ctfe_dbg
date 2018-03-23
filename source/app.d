@@ -66,6 +66,8 @@ struct DebuggerClientState
     char[265][32] commandHistoryBuffer;
     int commandHistoryLength;
 
+    string blPrefix;
+
     void setBreakPoint(int n)
     {
         TopLine("set breakpoint " ~ to!string(n));
@@ -153,8 +155,15 @@ struct DebuggerClientState
     }
 
 
-    void NumberInput(void delegate(int n) cb)
+    void NumberInput(string blPrefix, void delegate(int n) cb)
     {
+        NumberInput(cb, blPrefix);
+    }
+
+    void NumberInput (void delegate(int n) cb, string blPrefix = null)
+    {
+        if (blPrefix)
+            this.blPrefix = blPrefix;
         assert(!numberInputCallBack);
         numberInputCallBack = cb;
         numberInput = true;
@@ -216,7 +225,10 @@ void main()
             window.close();
             break;
         case "help", "h":
-            TopLine("I'd show help here ... but there is nothing to show");
+            {
+                TopLine("I'd show help here ... but there is nothing to show");
+                BottomLine(null);
+            }
             break;
         case "clear", "c":
             {
@@ -226,11 +238,14 @@ void main()
             break;
         case "b":
             {
-                NumberInput(&setBreakPoint);
+                NumberInput("Breakpoint: ", &setBreakPoint);
             }
             break;
         default:
-            TopLine("No such command: " ~ _command);
+            {
+                TopLine("No such command: " ~ _command);
+                BottomLine(null);
+            }
             break;
         }
     }
@@ -286,6 +301,8 @@ void main()
 
                         Number *= 10;
                         Number += n;
+                        if (blPrefix)
+                            BottomLine(" " ~ blPrefix ~ Number.to!string);
                         return;
                     }
                     if (key == Key.Backspace)
