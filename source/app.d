@@ -282,6 +282,20 @@ void main()
             //        addLine("Timer went off!");
             return;
         }
+    }, (dchar pressedChar) {
+        with (state) {
+            switch(pressedChar) {
+                case ':' : {
+                    if (!commandInput)
+                    {
+                        BottomLine(": ");
+                        commandLength = 0;
+                        commandInput = true;
+                    }
+                } break;
+                default : break;
+            }
+        }
     }, (KeyEvent event) {
         immutable key = event.key;
         with (state)
@@ -305,15 +319,13 @@ void main()
                 {
                     if (key >= Key.N0 && key <= Key.N9)
                     {
-                        import std.math;
-
                         uint n = (key - Key.N0);
-
                         Number *= 10;
                         Number += n;
                         if (blPrefix)
                             BottomLine(" " ~ blPrefix ~ Number.to!string);
                         return;
+
                     }
                     if (key == Key.Backspace)
                     {
@@ -381,14 +393,6 @@ void main()
 
                 if (key == Key.F4 || key == Key.Escape || (!commandInput && key == Key.Q))
                     window.close();
-
-                if (key == Key.Semicolon && event.modifierState & ModifierState.shift)
-                {
-                    BottomLine(": ");
-                    commandLength = 0;
-                    commandInput = true;
-                }
-
             }
 
         }
