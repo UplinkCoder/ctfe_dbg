@@ -330,6 +330,8 @@ void main()
                     if (key == Key.Backspace)
                     {
                         Number /= 10;
+                        if (blPrefix)
+                            BottomLine(" " ~ blPrefix ~ (Number ? Number.to!string : ""));
                         return;
                     }
 
